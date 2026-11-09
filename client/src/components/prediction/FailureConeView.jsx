@@ -1,156 +1,163 @@
 import React, { useState } from 'react';
-import { TrendingUp, Clock, AlertTriangle, ShieldCheck, ArrowRight, Zap, CheckCircle2 } from 'lucide-react';
+import { Clock, ShieldCheck, AlertTriangle, ArrowRight, CheckCircle2, TrendingUp, AlertCircle } from 'lucide-react';
 import TrendLineChart from './TrendLineChart';
-import { soundEffects } from '../../engine/soundEffects';
 
-export default function FailureConeView({ predictions = [] }) {
+export default function FailureConeView() {
   const [mitigatedIds, setMitigatedIds] = useState(new Set());
 
-  const sampleForecasts = predictions.length > 0 ? predictions : [
+  const upcomingErrors = [
     {
-      id: 'PRED-core-db-dbConnections',
-      service: 'core-db',
-      serviceLabel: 'Core PostgreSQL DB',
-      metric: 'dbConnections',
-      metricName: 'Connection Pool Saturation',
-      unit: '%',
-      currentValue: 92,
-      thresholdLimit: 95,
-      etaMinutes: 2.1,
-      etaCountdownSec: 126,
-      probability: 96,
-      evidence: 'Rolling 60-point ring buffer detected steep upward slope (+2.4%/tick). Projected breach in 02:06.',
-      preventiveAction: 'Pre-scale PgBouncer replicas to 6 and flush hung idle sessions.'
-    },
-    {
-      id: 'PRED-auth-service-latency',
+      id: 'err-1',
       service: 'auth-service',
-      serviceLabel: 'Auth Service',
-      metric: 'latency',
-      metricName: 'P99 Token Verification Latency',
-      unit: 'ms',
-      currentValue: 1840,
-      thresholdLimit: 2500,
-      etaMinutes: 4.2,
-      etaCountdownSec: 252,
-      probability: 91,
-      evidence: 'Thread pool queue wait times climbing linearly as DB pool exhausts.',
-      preventiveAction: 'Isolate non-critical token auth checks to distributed read-replica.'
+      serviceName: 'Auth Service',
+      predictedError: 'java.sql.SQLTransientConnectionException: HikariPool-1 - Connection is not available within 5000ms',
+      timeRemaining: '01:45',
+      timeLabel: 'In ~1.5 minutes',
+      probability: 96,
+      rootSignal: 'Active connection pool usage reached 98/100 slots on Core PostgreSQL DB.',
+      impact: 'Will cause user login and authentication verification requests to stall.',
+      recommendedFix: 'Scale database connection ceiling to 500 to relieve thread starvation.'
     },
     {
-      id: 'PRED-payment-service-errorRate',
+      id: 'err-2',
+      service: 'api-gateway',
+      serviceName: 'API Gateway',
+      predictedError: 'HTTP 504 Gateway Timeout: Upstream /checkout/pay took > 10,000ms',
+      timeRemaining: '03:10',
+      timeLabel: 'In ~3 minutes',
+      probability: 91,
+      rootSignal: 'Auth Service latency rose from 35ms to 4,800ms over the last 90 seconds.',
+      impact: 'Mobile app and web storefront checkouts will display 504 error pages.',
+      recommendedFix: 'Enable circuit breaker shedding on non-critical checkout validations.'
+    },
+    {
+      id: 'err-3',
       service: 'payment-service',
-      serviceLabel: 'Payment Service',
-      metric: 'errorRate',
-      metricName: 'Checkout Transaction Failures',
-      unit: '%',
-      currentValue: 8.4,
-      thresholdLimit: 15.0,
-      etaMinutes: 7.5,
-      etaCountdownSec: 450,
-      probability: 84,
-      evidence: 'Downstream cascade propagation from Core DB write deadlocks.',
-      preventiveAction: 'Trip checkout circuit breaker to graceful retry queue.'
+      serviceName: 'Payment Service',
+      predictedError: 'PaymentTransactionException: Core DB write lock timed out. Debit rolled back.',
+      timeRemaining: '05:40',
+      timeLabel: 'In ~5.5 minutes',
+      probability: 85,
+      rootSignal: 'Downstream lock queues climbing linearly following Auth Service timeouts.',
+      impact: '142 customer checkout transactions will fail and require manual retry.',
+      recommendedFix: 'Route failed orders to idempotent background dead-letter retry queue.'
     }
   ];
 
   const handleMitigate = (id) => {
-    soundEffects.playSuccess();
     setMitigatedIds(prev => new Set(prev).add(id));
   };
 
   return (
-    <div className="space-y-4 select-none">
-      {/* Expanding Failure Cone Banner */}
-      <div className="rounded-xl hud-panel p-5 border border-cyber-amber/50 bg-gradient-to-r from-cyber-panel via-cyber-card to-cyber-bg relative overflow-hidden">
-        <div className="flex items-center justify-between pb-3 border-b border-cyber-border mb-4">
-          <div className="flex items-center space-x-2 text-cyber-amber font-mono text-xs font-bold">
-            <TrendingUp className="w-4 h-4 animate-bounce" />
-            <span>PREDICTIVE FAILURE CONE FORECAST (P1 / I3 DIFFUSION MODEL)</span>
+    <div className="space-y-6">
+      {/* Introduction Banner (Peaceful, human explanation) */}
+      <div className="calm-card p-5">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-white tracking-tight">
+              Predictive Error Forecast
+            </h2>
+            <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
+              By analyzing incoming log velocity and rolling metric trends, J.A.R.V.I.S. anticipates downstream errors before they occur in production, giving engineers time to act before users are affected.
+            </p>
           </div>
-          <span className="text-xs font-mono px-2 py-0.5 rounded bg-cyber-amber/20 border border-cyber-amber text-cyber-amber font-bold animate-pulse">
-            HIGH PROBABILITY FUTURE CASCADE
+          <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            3 Impending Failures Detected
+          </span>
+        </div>
+      </div>
+
+      {/* SECTION 1: Predicted Upcoming Errors */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-white">
+            Impending Errors Predicted from Log Stream
+          </h3>
+          <span className="text-xs text-slate-400">
+            Ranked by urgency (time until occurrence)
           </span>
         </div>
 
-        {/* The Visual Cone Progression */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative">
-          {sampleForecasts.slice(0, 3).map((fc, idx) => {
-            const isMitigated = mitigatedIds.has(fc.id || idx);
+        <div className="space-y-3">
+          {upcomingErrors.map((err) => {
+            const isMitigated = mitigatedIds.has(err.id);
 
             return (
               <div
-                key={fc.id || idx}
-                className={`p-4 rounded-xl border relative overflow-hidden flex flex-col justify-between font-mono transition-all ${
+                key={err.id}
+                className={`p-4 rounded-xl border transition-all ${
                   isMitigated
-                    ? 'border-cyber-green/50 bg-cyber-green/10 shadow-neon-green'
-                    : 'border-cyber-amber/40 bg-cyber-card/80'
+                    ? 'bg-emerald-950/20 border-emerald-500/30'
+                    : 'calm-card hover:border-slate-700'
                 }`}
               >
-                {/* Expanding certainty cone gradient */}
-                {!isMitigated && (
-                  <div
-                    className="absolute top-0 right-0 w-2 h-full bg-gradient-to-b from-cyber-amber to-cyber-red opacity-80"
-                    style={{ width: `${6 + idx * 4}px` }}
-                  />
-                )}
-
-                <div>
-                  <div className="flex items-center justify-between text-xs mb-2">
-                    <span className="text-cyber-muted uppercase tracking-wider">Step {idx + 1} Propagation</span>
-                    <span className={`px-2 py-0.5 rounded border font-bold ${
-                      isMitigated ? 'bg-cyber-green/20 text-cyber-green border-cyber-green' : 'bg-cyber-amber/15 text-cyber-amber border-cyber-amber/30'
-                    }`}>
-                      {isMitigated ? 'Averted' : `${fc.probability}% Certainty`}
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 pb-3 border-b border-surface-border">
+                  <div className="flex items-center space-x-2.5">
+                    <span className={`w-2.5 h-2.5 rounded-full ${isMitigated ? 'bg-emerald-400' : 'bg-rose-500 animate-pulse'}`} />
+                    <span className="text-sm font-semibold text-white">
+                      {err.serviceName}
+                    </span>
+                    <span className="text-xs text-slate-500">•</span>
+                    <span className="text-xs font-mono text-slate-400">
+                      Target: {err.service}
                     </span>
                   </div>
 
-                  <div className="text-base font-bold text-white uppercase mb-1">
-                    {fc.serviceLabel}
+                  {/* Urgency & Certainty */}
+                  <div className="flex items-center space-x-3 text-xs">
+                    <span className="flex items-center space-x-1 text-slate-300">
+                      <Clock className="w-3.5 h-3.5 text-amber-400" />
+                      <span>{isMitigated ? 'Prevented' : `Breach in ${err.timeLabel} (${err.timeRemaining})`}</span>
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-800 text-slate-300 border border-slate-700">
+                      {err.probability}% Probability
+                    </span>
                   </div>
-
-                  <div className="text-xs text-cyber-cyan mb-2">
-                    {fc.metricName}: <strong className="text-white">{fc.currentValue}{fc.unit}</strong> → Limit: {fc.thresholdLimit}{fc.unit}
-                  </div>
-
-                  <p className="text-[11px] text-cyber-muted leading-tight mb-3 font-sans">
-                    {fc.evidence}
-                  </p>
                 </div>
 
-                {/* Countdown Timer & Interactive Mitigation Button */}
-                <div className="pt-3 border-t border-cyber-border/70 flex flex-col gap-2">
-                  <div className="flex items-center justify-between font-mono">
-                    <div className="flex items-center space-x-1.5 text-cyber-amber text-xs font-bold">
-                      <Clock className="w-3.5 h-3.5 animate-spin" />
-                      <span>{isMitigated ? 'Breach Cancelled' : `Breach in ~${fc.etaMinutes}m`}</span>
-                    </div>
+                {/* Error Details */}
+                <div className="py-3 space-y-2">
+                  <div className="p-2.5 rounded-lg bg-surface-bg border border-surface-border font-mono text-xs text-rose-300/90 break-all">
+                    {err.predictedError}
+                  </div>
 
-                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold border ${
-                      isMitigated ? 'text-cyber-green bg-cyber-green/20 border-cyber-green' : 'text-cyber-amber bg-cyber-amber/10 border-cyber-amber/30'
-                    }`}>
-                      {isMitigated ? 'MITIGATED' : 'PRE-EMPTIVE'}
-                    </span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-slate-400 pt-1">
+                    <div>
+                      <span className="text-slate-500 block text-[11px]">Why this will happen:</span>
+                      <span className="text-slate-300">{err.rootSignal}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[11px]">User Impact:</span>
+                      <span className="text-slate-300">{err.impact}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actionable Prevention Button */}
+                <div className="pt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-t border-surface-border">
+                  <div className="text-xs text-slate-400">
+                    <span className="text-slate-500">Preventive Fix: </span>
+                    <span className="text-slate-200">{err.recommendedFix}</span>
                   </div>
 
                   <button
-                    onClick={() => handleMitigate(fc.id || idx)}
+                    onClick={() => handleMitigate(err.id)}
                     disabled={isMitigated}
-                    className={`w-full py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer flex items-center justify-center space-x-1.5 ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer flex items-center space-x-1.5 ${
                       isMitigated
-                        ? 'bg-cyber-green/20 border-cyber-green text-cyber-green'
-                        : 'bg-cyber-amber/20 border-cyber-amber text-cyber-amber hover:bg-cyber-amber/30 shadow-neon-amber'
+                        ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400'
+                        : 'bg-brand-500/15 border border-brand-500/30 text-brand-400 hover:bg-brand-500/25'
                     }`}
                   >
                     {isMitigated ? (
                       <>
-                        <CheckCircle2 className="w-3.5 h-3.5 text-cyber-green" />
-                        <span>PRE-EMPTIVE FIX APPLIED</span>
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Mitigation Applied</span>
                       </>
                     ) : (
                       <>
                         <ShieldCheck className="w-3.5 h-3.5" />
-                        <span>PRE-EMPTIVELY MITIGATE</span>
+                        <span>Apply Preventive Mitigation</span>
                       </>
                     )}
                   </button>
@@ -161,7 +168,43 @@ export default function FailureConeView({ predictions = [] }) {
         </div>
       </div>
 
-      {/* Metric Projection Trend Chart */}
+      {/* SECTION 2: Cascade Progression Timeline */}
+      <div className="calm-card p-5">
+        <h3 className="text-sm font-semibold text-white mb-2">
+          Anticipated Cascade Progression Timeline
+        </h3>
+        <p className="text-xs text-slate-400 mb-4">
+          How this outage will naturally spread downstream across banking services if left unaddressed.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+          <div className="p-3 rounded-lg bg-surface-card border border-rose-500/30">
+            <span className="text-[10px] uppercase font-semibold text-rose-400 block mb-0.5">Stage 1 (Now)</span>
+            <div className="font-medium text-white">Core DB Exhaustion</div>
+            <p className="text-[11px] text-slate-400 mt-1">Pool connections hit 98/100 slots.</p>
+          </div>
+
+          <div className="p-3 rounded-lg bg-surface-card border border-amber-500/30">
+            <span className="text-[10px] uppercase font-semibold text-amber-400 block mb-0.5">Stage 2 (+2 Mins)</span>
+            <div className="font-medium text-white">Auth Session Timeout</div>
+            <p className="text-[11px] text-slate-400 mt-1">Token validation latency exceeds 5,000ms.</p>
+          </div>
+
+          <div className="p-3 rounded-lg bg-surface-card border border-slate-700">
+            <span className="text-[10px] uppercase font-semibold text-slate-400 block mb-0.5">Stage 3 (+5 Mins)</span>
+            <div className="font-medium text-white">Checkout 504 Timeouts</div>
+            <p className="text-[11px] text-slate-400 mt-1">API gateway ingress trips circuit limits.</p>
+          </div>
+
+          <div className="p-3 rounded-lg bg-surface-card border border-slate-700">
+            <span className="text-[10px] uppercase font-semibold text-slate-400 block mb-0.5">Stage 4 (+8 Mins)</span>
+            <div className="font-medium text-white">Payment Rollbacks</div>
+            <p className="text-[11px] text-slate-400 mt-1">Transactions deadlocked and reversed.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION 3: Metric Projection Trend */}
       <TrendLineChart />
     </div>
   );

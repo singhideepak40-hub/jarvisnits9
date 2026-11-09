@@ -10,8 +10,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import CustomServiceNode from './CustomServiceNode';
 import { useJarvis } from '../../context/JarvisContext';
-import { Activity, ShieldAlert, Sparkles, Filter, Layers, ZoomIn } from 'lucide-react';
-import { soundEffects } from '../../engine/soundEffects';
+import { Network, Filter } from 'lucide-react';
 
 const nodeTypes = {
   customService: CustomServiceNode
@@ -19,25 +18,22 @@ const nodeTypes = {
 
 export default function ServiceGraph({ onSelectNode }) {
   const { nodes: contextNodes, edges: contextEdges, incidentDetails, setSelectedNodeId } = useJarvis();
-  const [filterMode, setFilterMode] = useState('ALL'); // 'ALL' | 'BLAST' | 'CRITICAL' | 'STORAGE'
+  const [filterMode, setFilterMode] = useState('ALL');
 
-  const affectedServices = incidentDetails?.impactAnalysis?.affectedServices || ['core-db', 'auth-service', 'api-gateway', 'payment-service', 'notification-service'];
+  const affectedServices = incidentDetails?.impactAnalysis?.affectedServices || [
+    'core-db', 'auth-service', 'api-gateway', 'payment-service', 'notification-service'
+  ];
 
-  // Filter nodes interactively
   const filteredContextNodes = useMemo(() => {
     if (filterMode === 'BLAST') {
       return contextNodes.filter(n => affectedServices.includes(n.id));
     }
-    if (filterMode === 'CRITICAL') {
-      return contextNodes.filter(n => n.health < 40 || n.status === 'failing');
-    }
-    if (filterMode === 'STORAGE') {
-      return contextNodes.filter(n => n.type === 'database');
+    if (filterMode === 'FAILING') {
+      return contextNodes.filter(n => n.health < 80 || n.status === 'failing');
     }
     return contextNodes;
   }, [contextNodes, filterMode, affectedServices]);
 
-  // Convert context nodes to React Flow format
   const rfNodes = useMemo(() => {
     return filteredContextNodes.map(n => ({
       id: n.id,
@@ -47,23 +43,21 @@ export default function ServiceGraph({ onSelectNode }) {
     }));
   }, [filteredContextNodes]);
 
-  // Convert context edges with dynamic styling based on cascade
   const rfEdges = useMemo(() => {
     return contextEdges.map(e => {
-      const isCascadePath = affectedServices.includes(e.source) && affectedServices.includes(e.target);
+      const isCascade = affectedServices.includes(e.source) && affectedServices.includes(e.target);
       return {
         ...e,
-        animated: true,
+        animated: isCascade,
         style: {
-          stroke: isCascadePath ? '#FF2A55' : '#00F2FE',
-          strokeWidth: isCascadePath ? 3 : 1.8,
-          strokeDasharray: isCascadePath ? '6 3' : undefined
+          stroke: isCascade ? '#F43F5E' : '#475569',
+          strokeWidth: isCascade ? 2.2 : 1.5
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
-          color: isCascadePath ? '#FF2A55' : '#00F2FE',
-          width: 16,
-          height: 16
+          color: isCascade ? '#F43F5E' : '#475569',
+          width: 14,
+          height: 14
         }
       };
     });
@@ -81,40 +75,35 @@ export default function ServiceGraph({ onSelectNode }) {
   }, [rfEdges, setEdges]);
 
   const handleNodeClick = useCallback((event, node) => {
-    soundEffects.playClick();
     setSelectedNodeId(node.id);
     if (onSelectNode) onSelectNode(node.id);
   }, [onSelectNode, setSelectedNodeId]);
 
   return (
-    <div className="relative w-full h-[540px] rounded-xl hud-panel border border-cyber-border overflow-hidden select-none">
-      {/* Top Left Title & Interactive Filter Pills */}
+    <div className="relative w-full h-[480px] rounded-xl calm-card overflow-hidden">
+      {/* Clean Top Bar */}
       <div className="absolute top-3 left-4 z-10 flex flex-wrap items-center gap-2">
-        <div className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-cyber-bg/90 border border-cyber-border/80 backdrop-blur-md">
-          <Activity className="w-4 h-4 text-cyber-cyan animate-pulse" />
-          <span className="text-xs font-mono font-bold text-cyber-cyan uppercase tracking-wider">
-            Service Mesh Graph (Click Node to Inspect)
+        <div className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-surface-panel/90 border border-surface-border">
+          <Network className="w-3.5 h-3.5 text-brand-400" />
+          <span className="text-xs font-medium text-slate-200">
+            Service Dependency Map
           </span>
         </div>
 
-        {/* Interactive Filter Pills */}
-        <div className="flex items-center space-x-1 font-mono text-[10px] bg-cyber-card/90 p-0.5 rounded-lg border border-cyber-border">
+        {/* Filters */}
+        <div className="flex items-center space-x-1 text-xs bg-surface-panel/90 p-0.5 rounded-lg border border-surface-border">
           {[
-            { id: 'ALL', label: `All (${contextNodes.length})` },
+            { id: 'ALL', label: `All Services (${contextNodes.length})` },
             { id: 'BLAST', label: `Blast Radius (${affectedServices.length})` },
-            { id: 'CRITICAL', label: 'Failing Only' },
-            { id: 'STORAGE', label: 'Databases' }
+            { id: 'FAILING', label: 'Degraded Only' }
           ].map(f => (
             <button
               key={f.id}
-              onClick={() => {
-                soundEffects.playClick();
-                setFilterMode(f.id);
-              }}
-              className={`px-2 py-1 rounded transition-colors cursor-pointer ${
+              onClick={() => setFilterMode(f.id)}
+              className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
                 filterMode === f.id
-                  ? 'bg-cyber-cyan/20 text-cyber-cyan font-bold border border-cyber-cyan/40 shadow-neon-cyan'
-                  : 'text-cyber-muted hover:text-white'
+                  ? 'bg-surface-card text-white font-medium border border-surface-border'
+                  : 'text-slate-400 hover:text-white'
               }`}
             >
               {f.label}
@@ -123,10 +112,20 @@ export default function ServiceGraph({ onSelectNode }) {
         </div>
       </div>
 
-      {/* Ripple Wave Speed Banner (I4) */}
-      <div className="absolute top-3 right-4 z-10 hidden lg:flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-cyber-red/15 border border-cyber-red/40 text-cyber-red text-xs font-mono pointer-events-none">
-        <ShieldAlert className="w-4 h-4 animate-pulse" />
-        <span>Wave Speed: <strong>5 services in 4.2m (1.2 hops/min)</strong></span>
+      {/* Clean Legend */}
+      <div className="absolute bottom-3 left-4 z-10 flex items-center space-x-3 text-xs text-slate-400 px-3 py-1.5 rounded-lg bg-surface-panel/90 border border-surface-border">
+        <div className="flex items-center space-x-1.5">
+          <span className="w-2 h-2 rounded-full bg-emerald-400" />
+          <span>Healthy</span>
+        </div>
+        <div className="flex items-center space-x-1.5">
+          <span className="w-2 h-2 rounded-full bg-amber-400" />
+          <span>Degraded</span>
+        </div>
+        <div className="flex items-center space-x-1.5">
+          <span className="w-2 h-2 rounded-full bg-rose-400" />
+          <span>Failing (Cascade)</span>
+        </div>
       </div>
 
       <ReactFlow
@@ -137,12 +136,12 @@ export default function ServiceGraph({ onSelectNode }) {
         nodeTypes={nodeTypes}
         onNodeClick={handleNodeClick}
         fitView
-        fitViewOptions={{ padding: 0.2 }}
-        minZoom={0.4}
+        fitViewOptions={{ padding: 0.15 }}
+        minZoom={0.5}
         maxZoom={1.5}
       >
-        <Background color="#152445" gap={24} size={1.2} />
-        <Controls className="!bg-cyber-card !border-cyber-border !text-cyber-cyan !fill-cyber-cyan" />
+        <Background color="#1E293B" gap={20} size={1} />
+        <Controls />
       </ReactFlow>
     </div>
   );

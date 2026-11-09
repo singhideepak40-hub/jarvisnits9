@@ -1,96 +1,69 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useJarvis } from '../../context/JarvisContext';
-import { Clock, Zap, Users, DollarSign, ShieldCheck, ArrowRight, Info } from 'lucide-react';
-import { soundEffects } from '../../engine/soundEffects';
+import { Clock, Zap, Users, AlertTriangle } from 'lucide-react';
 
 export default function MetricCounters() {
   const { setActiveTab } = useJarvis();
-  const [activeTooltip, setActiveTooltip] = useState(null);
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 font-mono select-none">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 select-none">
       {/* 1. Time to Root Cause */}
       <div
-        onClick={() => {
-          soundEffects.playClick();
-          setActiveTooltip(activeTooltip === 'time' ? null : 'time');
-        }}
-        className="p-3.5 rounded-xl hud-panel border border-cyber-border/80 flex items-center space-x-3 cursor-pointer hover:border-cyber-green/50 hover:scale-[1.01] transition-all"
-        title="Click to view speed breakdown"
+        onClick={() => setActiveTab('investigation')}
+        className="calm-card p-4 flex items-center space-x-3.5 cursor-pointer hover:border-slate-600 transition-colors"
       >
-        <div className="w-10 h-10 rounded-lg bg-cyber-green/15 border border-cyber-green/40 flex items-center justify-center text-cyber-green shadow-neon-green flex-shrink-0">
-          <Clock className="w-5 h-5" />
+        <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 flex-shrink-0">
+          <Clock className="w-4 h-4" />
         </div>
         <div>
-          <span className="text-[10px] text-cyber-muted uppercase block">Time to Root Cause</span>
-          <div className="text-base font-bold text-cyber-green text-glow-green">8 Seconds</div>
-          <span className="text-[10px] text-cyber-muted line-through">~45 min manual triage</span>
+          <span className="text-[11px] text-slate-400 block font-medium">Time to Root Cause</span>
+          <div className="text-base font-semibold text-white">8 Seconds</div>
+          <span className="text-[10px] text-slate-500">vs ~45 min manual triage</span>
         </div>
       </div>
 
       {/* 2. Alert Reduction */}
       <div
-        onClick={() => {
-          soundEffects.playClick();
-          setActiveTab('compare');
-        }}
-        className="p-3.5 rounded-xl hud-panel border border-cyber-border/80 flex items-center space-x-3 cursor-pointer hover:border-cyber-cyan/50 hover:scale-[1.01] transition-all"
-        title="Click to open Before / After Split Slider"
+        onClick={() => setActiveTab('logs')}
+        className="calm-card p-4 flex items-center space-x-3.5 cursor-pointer hover:border-slate-600 transition-colors"
       >
-        <div className="w-10 h-10 rounded-lg bg-cyber-cyan/15 border border-cyber-cyan/40 flex items-center justify-center text-cyber-cyan shadow-neon-cyan flex-shrink-0">
-          <Zap className="w-5 h-5" />
+        <div className="w-9 h-9 rounded-lg bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-brand-400 flex-shrink-0">
+          <Zap className="w-4 h-4" />
         </div>
         <div>
-          <span className="text-[10px] text-cyber-muted uppercase block">Alerts Reduction</span>
-          <div className="text-base font-bold text-cyber-cyan text-glow-cyan">92.6% Filtered</div>
-          <span className="text-[10px] text-cyber-muted flex items-center space-x-1">
-            <span>247 raw → 1 incident</span>
-            <ArrowRight className="w-2.5 h-2.5" />
-          </span>
+          <span className="text-[11px] text-slate-400 block font-medium">Noise Reduction</span>
+          <div className="text-base font-semibold text-white">92.6% Filtered</div>
+          <span className="text-[10px] text-slate-500">247 alerts → 1 incident</span>
         </div>
       </div>
 
-      {/* 3. Users Protected */}
+      {/* 3. Next Failure Countdown */}
       <div
-        onClick={() => {
-          soundEffects.playClick();
-          setActiveTab('counterfactual');
-        }}
-        className="p-3.5 rounded-xl hud-panel border border-cyber-border/80 flex items-center space-x-3 cursor-pointer hover:border-cyber-blue/50 hover:scale-[1.01] transition-all"
-        title="Click to open Counterfactual Rewind & Fix simulator"
+        onClick={() => setActiveTab('predictions')}
+        className="calm-card p-4 flex items-center space-x-3.5 cursor-pointer hover:border-slate-600 transition-colors"
       >
-        <div className="w-10 h-10 rounded-lg bg-cyber-blue/15 border border-cyber-blue/40 flex items-center justify-center text-cyber-blue flex-shrink-0">
-          <Users className="w-5 h-5" />
+        <div className="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 flex-shrink-0">
+          <AlertTriangle className="w-4 h-4" />
         </div>
         <div>
-          <span className="text-[10px] text-cyber-muted uppercase block">Users Protected</span>
-          <div className="text-base font-bold text-white">3,890 Saved</div>
-          <span className="text-[10px] text-cyber-muted flex items-center space-x-1">
-            <span>Via rewind & fix</span>
-            <ArrowRight className="w-2.5 h-2.5" />
-          </span>
+          <span className="text-[11px] text-slate-400 block font-medium">Next Projected Failure</span>
+          <div className="text-base font-semibold text-amber-400">In 01:45 mins</div>
+          <span className="text-[10px] text-slate-500">Auth Token Timeout</span>
         </div>
       </div>
 
-      {/* 4. Revenue Saved */}
+      {/* 4. Users Protected */}
       <div
-        onClick={() => {
-          soundEffects.playClick();
-          setActiveTab('digitaltwin');
-        }}
-        className="p-3.5 rounded-xl hud-panel border border-cyber-border/80 flex items-center space-x-3 cursor-pointer hover:border-cyber-amber/50 hover:scale-[1.01] transition-all"
-        title="Click to open Digital Twin sandbox"
+        onClick={() => setActiveTab('investigation')}
+        className="calm-card p-4 flex items-center space-x-3.5 cursor-pointer hover:border-slate-600 transition-colors"
       >
-        <div className="w-10 h-10 rounded-lg bg-cyber-amber/15 border border-cyber-amber/40 flex items-center justify-center text-cyber-amber shadow-neon-amber flex-shrink-0">
-          <DollarSign className="w-5 h-5" />
+        <div className="w-9 h-9 rounded-lg bg-slate-700/30 border border-slate-700 flex items-center justify-center text-slate-300 flex-shrink-0">
+          <Users className="w-4 h-4" />
         </div>
         <div>
-          <span className="text-[10px] text-cyber-muted uppercase block">Estimated Revenue Saved</span>
-          <div className="text-base font-bold text-cyber-amber text-glow-amber">$17,140 USD</div>
-          <span className="text-[10px] text-cyber-muted flex items-center space-x-1">
-            <span>From dropped checkouts</span>
-            <ArrowRight className="w-2.5 h-2.5" />
-          </span>
+          <span className="text-[11px] text-slate-400 block font-medium">Users Protected</span>
+          <div className="text-base font-semibold text-white">3,890 Saved</div>
+          <span className="text-[10px] text-slate-500">With recommended fix</span>
         </div>
       </div>
     </div>

@@ -8,47 +8,39 @@ export default {
   theme: {
     extend: {
       colors: {
-        cyber: {
-          bg: '#050811',
-          panel: '#090F1E',
-          card: '#0D162B',
-          border: '#152445',
-          cyan: '#00F2FE',
-          blue: '#4FACFE',
-          red: '#FF2A55',
-          amber: '#FF9F1C',
-          green: '#00F0A0',
-          purple: '#9B51E0',
-          text: '#E2E8F0',
-          muted: '#8A99AD'
+        brand: {
+          50: '#f0f9ff',
+          100: '#e0f2fe',
+          400: '#38bdf8',
+          500: '#0ea5e9',
+          600: '#0284c7',
+        },
+        surface: {
+          bg: '#0B0F19',
+          panel: '#111827',
+          card: '#162032',
+          hover: '#1E2A40',
+          border: '#243247',
+          borderSubtle: 'rgba(255, 255, 255, 0.06)'
+        },
+        status: {
+          healthy: '#10B981',
+          healthyBg: 'rgba(16, 185, 129, 0.12)',
+          healthyBorder: 'rgba(16, 185, 129, 0.3)',
+          warning: '#F59E0B',
+          warningBg: 'rgba(245, 158, 11, 0.12)',
+          warningBorder: 'rgba(245, 158, 11, 0.3)',
+          critical: '#F43F5E',
+          criticalBg: 'rgba(244, 63, 94, 0.12)',
+          criticalBorder: 'rgba(244, 63, 94, 0.3)',
+          info: '#38BDF8',
+          infoBg: 'rgba(56, 189, 248, 0.12)',
+          infoBorder: 'rgba(56, 189, 248, 0.3)',
         }
       },
-      boxShadow: {
-        'neon-cyan': '0 0 15px rgba(0, 242, 254, 0.45)',
-        'neon-red': '0 0 20px rgba(255, 42, 85, 0.55)',
-        'neon-amber': '0 0 15px rgba(255, 159, 28, 0.45)',
-        'neon-green': '0 0 15px rgba(0, 240, 160, 0.45)',
-        'hud-card': '0 4px 20px -2px rgba(0, 0, 0, 0.7), inset 0 0 0 1px rgba(0, 242, 254, 0.15)'
-      },
-      animation: {
-        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'scanline': 'scanline 8s linear infinite',
-        'radar-sweep': 'radarSweep 4s linear infinite',
-        'ripple': 'rippleWave 2s ease-out infinite'
-      },
-      keyframes: {
-        scanline: {
-          '0%': { transform: 'translateY(-100%)' },
-          '100%': { transform: 'translateY(1000%)' }
-        },
-        radarSweep: {
-          '0%': { transform: 'rotate(0deg)' },
-          '100%': { transform: 'rotate(360deg)' }
-        },
-        rippleWave: {
-          '0%': { transform: 'scale(0.95)', opacity: '0.8' },
-          '100%': { transform: 'scale(1.3)', opacity: '0' }
-        }
+      fontFamily: {
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       }
     },
   },

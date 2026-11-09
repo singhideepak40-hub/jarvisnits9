@@ -1,14 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useJarvis } from '../../context/JarvisContext';
-import { X, Send, Bot, User, Sparkles, Terminal } from 'lucide-react';
-import { soundEffects } from '../../engine/soundEffects';
+import { X, Send, Bot, Sparkles } from 'lucide-react';
 
 export default function JarvisChatModal() {
   const { isChatOpen, setIsChatOpen, incidentDetails } = useJarvis();
   const [messages, setMessages] = useState([
     {
       sender: 'jarvis',
-      text: 'Good day, Operator. I am J.A.R.V.I.S., your Justified Analysis & Reasoning Incident Visualizer Assistant. I have analyzed 247 incoming telemetry signals and isolated the single root outage. How may I assist your triage?'
+      text: 'Hello. I can explain the current incident, break down why Core DB pool exhaustion caused downstream payment timeouts, or summarize predicted upcoming errors. What would you like to know?'
     }
   ]);
   const [input, setInput] = useState('');
@@ -27,7 +26,6 @@ export default function JarvisChatModal() {
     const textToSend = userText || input;
     if (!textToSend.trim()) return;
 
-    soundEffects.playClick();
     const userMsg = { sender: 'user', text: textToSend };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
@@ -42,67 +40,55 @@ export default function JarvisChatModal() {
 
       if (res.ok) {
         const data = await res.json();
-        soundEffects.playSuccess();
         setMessages(prev => [...prev, { sender: 'jarvis', text: data.reply }]);
       } else {
         throw new Error('API failed');
       }
     } catch {
-      // Offline fallback rule-based response
       setTimeout(() => {
-        soundEffects.playSuccess();
         const rootSvc = incidentDetails?.rootCauseAnalysis?.rootCause?.service || 'core-db';
         const q = textToSend.toLowerCase();
-        let reply = `Operator, our telemetry confirms that **${rootSvc} connection pool exhaustion** is the root anomaly with 91% justified confidence. Downstream payment timeouts are secondary symptoms caused by database queue contention.`;
+        let reply = `Telemetry confirms that **Core PostgreSQL connection pool exhaustion** is the root bottleneck (91% confidence). Active connections reached 98/100 slots, causing Auth Service to stall on user session lookups, which generated 504 timeouts at the API Gateway and rolled back payment transactions.`;
 
-        if (q.includes('fix') || q.includes('solve') || q.includes('playbook')) {
-          reply = `Recommended protocol: Scale PgBouncer pool to 500 connections via \`kubectl scale deploy pgbouncer --replicas=6\` and terminate idle sessions. This will resolve the entire outage within 2.5 minutes.`;
-        } else if (q.includes('next') || q.includes('fail') || q.includes('predict')) {
-          reply = `Predictive Failure Cone indicates that **Payment Service** will breach its thread SLA in **04:12 minutes** with 94% certainty unless connection handles are expanded.`;
-        } else if (q.includes('user') || q.includes('impact') || q.includes('who')) {
-          reply = `Blast radius is currently 5 microservices, impacting **4,200 active users** with $18,500 USD in delayed checkout volume.`;
+        if (q.includes('fix') || q.includes('solve')) {
+          reply = `Recommended 4-step remediation:\n1. Scale PgBouncer pool to 500 connections (\`kubectl scale deploy pgbouncer --replicas=6\`).\n2. Terminate 42 hung idle client sessions.\n3. Rolling restart Auth Service pods.\n4. Replay failed payment transactions.`;
+        } else if (q.includes('predict') || q.includes('next') || q.includes('fail')) {
+          reply = `Upcoming predicted errors based on log trends:\n- Auth Service: token timeout within ~1.5 minutes (96% probability).\n- API Gateway: 504 gateway timeout on /checkout within ~3 minutes (91% probability).\n- Payment Service: debit rollback within ~5.5 minutes (85% probability).`;
+        } else if (q.includes('user') || q.includes('impact')) {
+          reply = `Current customer impact:\n- 4,200 affected shoppers experiencing login or checkout delays.\n- $18,500 USD in delayed transaction volume across 5 microservices.`;
         }
 
         setMessages(prev => [...prev, { sender: 'jarvis', text: reply }]);
-      }, 500);
+      }, 400);
     } finally {
       setIsTyping(false);
     }
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 w-[420px] max-w-[calc(100vw-32px)] h-[560px] rounded-2xl hud-panel border border-cyber-cyan shadow-neon-cyan flex flex-col justify-between overflow-hidden font-mono">
+    <div className="fixed bottom-6 right-6 z-50 w-[400px] max-w-[calc(100vw-32px)] h-[520px] rounded-xl calm-card shadow-2xl flex flex-col justify-between overflow-hidden border border-surface-border">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-cyber-border bg-cyber-card/80">
-        <div className="flex items-center space-x-2.5">
-          <div className="w-8 h-8 rounded-lg bg-cyber-cyan/15 border border-cyber-cyan/40 flex items-center justify-center text-cyber-cyan shadow-neon-cyan">
-            <Bot className="w-4 h-4 animate-pulse" />
+      <div className="flex items-center justify-between p-3.5 border-b border-surface-border bg-surface-panel">
+        <div className="flex items-center space-x-2">
+          <div className="w-7 h-7 rounded-md bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-brand-400">
+            <Sparkles className="w-4 h-4" />
           </div>
           <div>
-            <div className="text-xs font-bold text-white tracking-wider flex items-center space-x-1.5">
-              <span>J.A.R.V.I.S. AI CO-PILOT</span>
-              <Sparkles className="w-3 h-3 text-cyber-cyan" />
-            </div>
-            <span className="text-[10px] text-cyber-green flex items-center space-x-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyber-green animate-ping" />
-              <span>Gemini 1.5 Telemetry Reasoner</span>
-            </span>
+            <div className="text-xs font-semibold text-white">AI Incident Assistant</div>
+            <div className="text-[10px] text-slate-400">Contextual telemetry reasoning</div>
           </div>
         </div>
 
         <button
-          onClick={() => {
-            soundEffects.playClick();
-            setIsChatOpen(false);
-          }}
-          className="text-cyber-muted hover:text-white transition-colors cursor-pointer"
+          onClick={() => setIsChatOpen(false)}
+          className="text-slate-400 hover:text-white p-1 rounded-md transition-colors cursor-pointer"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Message History */}
-      <div ref={scrollRef} className="flex-1 p-4 overflow-y-auto space-y-3 text-xs">
+      {/* Messages */}
+      <div ref={scrollRef} className="flex-1 p-4 overflow-y-auto space-y-3 text-xs leading-relaxed">
         {messages.map((m, idx) => (
           <div
             key={idx}
@@ -111,76 +97,64 @@ export default function JarvisChatModal() {
             }`}
           >
             {m.sender === 'jarvis' && (
-              <div className="w-6 h-6 rounded-full bg-cyber-cyan/20 border border-cyber-cyan text-cyber-cyan flex items-center justify-center flex-shrink-0 text-[10px] font-bold">
-                J
+              <div className="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 text-slate-300 flex items-center justify-center flex-shrink-0 text-[10px] font-semibold mt-0.5">
+                AI
               </div>
             )}
 
             <div
-              className={`p-3 rounded-xl max-w-[85%] leading-relaxed whitespace-pre-wrap ${
+              className={`p-3 rounded-lg max-w-[85%] whitespace-pre-wrap ${
                 m.sender === 'user'
-                  ? 'bg-cyber-blue/20 border border-cyber-blue/40 text-white rounded-br-none'
-                  : 'bg-cyber-card/90 border border-cyber-border/80 text-cyber-text rounded-bl-none shadow-hud-card'
+                  ? 'bg-brand-600 text-white'
+                  : 'bg-surface-bg border border-surface-border text-slate-200'
               }`}
             >
               {m.text}
             </div>
-
-            {m.sender === 'user' && (
-              <div className="w-6 h-6 rounded-full bg-cyber-blue/30 border border-cyber-blue text-white flex items-center justify-center flex-shrink-0 text-[10px]">
-                U
-              </div>
-            )}
           </div>
         ))}
 
         {isTyping && (
-          <div className="flex items-center space-x-2 text-cyber-cyan text-[11px]">
-            <Bot className="w-3.5 h-3.5 animate-spin" />
-            <span>Analyzing incident knowledge graph...</span>
+          <div className="text-xs text-slate-400 italic">
+            Analyzing telemetry knowledge graph...
           </div>
         )}
       </div>
 
-      {/* Suggested Quick Question Chips */}
-      <div className="px-4 py-2 bg-cyber-bg/70 border-t border-cyber-border/60 flex items-center space-x-1.5 overflow-x-auto text-[10px]">
-        {[
-          "Why did payments fail?",
-          "How do I fix it?",
-          "What will fail next?",
-          "Users impacted?"
-        ].map((q, i) => (
+      {/* Quick Prompts */}
+      <div className="px-3 py-1.5 bg-surface-bg border-t border-surface-border flex items-center space-x-1.5 overflow-x-auto text-[11px]">
+        {["What will fail next?", "Explain root cause", "How do I fix this?"].map((q, i) => (
           <button
             key={i}
             onClick={() => handleSend(q)}
-            className="px-2 py-0.5 rounded bg-cyber-card border border-cyber-border hover:border-cyber-cyan text-cyber-cyan whitespace-nowrap cursor-pointer transition-colors"
+            className="px-2 py-0.5 rounded bg-surface-card hover:bg-surface-hover border border-surface-border text-slate-300 whitespace-nowrap cursor-pointer transition-colors"
           >
             {q}
           </button>
         ))}
       </div>
 
-      {/* Input Box */}
+      {/* Input */}
       <form
         onSubmit={(e) => {
           e.preventDefault();
           handleSend();
         }}
-        className="p-3 bg-cyber-card/90 border-t border-cyber-border flex items-center space-x-2"
+        className="p-3 bg-surface-panel border-t border-surface-border flex items-center space-x-2"
       >
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask J.A.R.V.I.S. about the incident..."
-          className="flex-1 bg-cyber-bg border border-cyber-border rounded-lg px-3 py-2 text-xs text-cyber-text focus:outline-none focus:border-cyber-cyan"
+          placeholder="Ask a question about this incident..."
+          className="flex-1 bg-surface-bg border border-surface-border rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-slate-500"
         />
         <button
           type="submit"
           disabled={!input.trim()}
-          className="p-2 rounded-lg bg-cyber-cyan/20 border border-cyber-cyan text-cyber-cyan hover:bg-cyber-cyan/30 disabled:opacity-40 transition-all cursor-pointer shadow-neon-cyan"
+          className="p-2 rounded-lg bg-brand-500/15 border border-brand-500/30 text-brand-400 hover:bg-brand-500/25 disabled:opacity-40 transition-colors cursor-pointer"
         >
-          <Send className="w-4 h-4" />
+          <Send className="w-3.5 h-3.5" />
         </button>
       </form>
     </div>
