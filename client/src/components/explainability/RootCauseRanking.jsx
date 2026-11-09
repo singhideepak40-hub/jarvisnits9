@@ -1,7 +1,11 @@
 import React from 'react';
-import { ShieldAlert, CheckCircle2, AlertTriangle, ArrowRight, HelpCircle } from 'lucide-react';
+import { useJarvis } from '../../context/JarvisContext';
+import { ShieldAlert, CheckCircle2, AlertTriangle, ArrowRight, HelpCircle, Eye } from 'lucide-react';
+import { soundEffects } from '../../engine/soundEffects';
 
 export default function RootCauseRanking({ rootCauseData }) {
+  const { setSelectedNodeId, setSelectedLog } = useJarvis();
+
   const topCauses = rootCauseData?.topCauses || [
     {
       rank: 1,
@@ -30,14 +34,14 @@ export default function RootCauseRanking({ rootCauseData }) {
   ];
 
   return (
-    <div className="rounded-xl hud-panel p-4 border border-cyber-border">
+    <div className="rounded-xl hud-panel p-4 border border-cyber-border select-none">
       <div className="flex items-center justify-between pb-3 border-b border-cyber-border/70 mb-3">
         <div className="flex items-center space-x-2 text-cyber-cyan font-mono text-xs font-bold">
           <ShieldAlert className="w-4 h-4 text-cyber-red animate-pulse" />
           <span>JUSTIFIED ROOT CAUSE DETECTOR (F3 RANKED CAUSES)</span>
         </div>
         <span className="text-[10px] font-mono text-cyber-muted">
-          Algorithm: Earliest Anomaly + Downstream Graph Depth
+          Click any service card to inspect live pod metrics
         </span>
       </div>
 
@@ -48,10 +52,14 @@ export default function RootCauseRanking({ rootCauseData }) {
           return (
             <div
               key={cause.rank}
-              className={`p-3 rounded-lg border font-mono transition-all ${
+              onClick={() => {
+                soundEffects.playClick();
+                setSelectedNodeId(cause.service);
+              }}
+              className={`p-3 rounded-lg border font-mono transition-all cursor-pointer hover:scale-[1.01] ${
                 isRank1
-                  ? 'border-cyber-red/60 bg-cyber-red/10 shadow-neon-red'
-                  : 'border-cyber-border bg-cyber-card/50 text-cyber-muted'
+                  ? 'border-cyber-red/60 bg-cyber-red/10 shadow-neon-red hover:bg-cyber-red/15'
+                  : 'border-cyber-border bg-cyber-card/50 text-cyber-muted hover:border-cyber-cyan/40 hover:text-white'
               }`}
             >
               <div className="flex items-center justify-between mb-2">
@@ -62,7 +70,9 @@ export default function RootCauseRanking({ rootCauseData }) {
                     #{cause.rank}
                   </span>
                   <div>
-                    <span className="text-sm font-bold text-white uppercase">{cause.service}</span>
+                    <span className="text-sm font-bold text-white uppercase underline decoration-cyber-cyan/40">
+                      {cause.service}
+                    </span>
                     <span className="text-[10px] text-cyber-muted ml-2">
                       ({cause.downstreamCount} downstream microservices cascaded)
                     </span>
@@ -86,7 +96,21 @@ export default function RootCauseRanking({ rootCauseData }) {
               </div>
 
               {/* Primary Evidence Log */}
-              <div className="text-[11px] bg-cyber-bg/90 p-2 rounded border border-cyber-border/70 text-cyber-text truncate">
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  soundEffects.playClick();
+                  setSelectedLog({
+                    service: cause.service,
+                    severity: isRank1 ? 'CRITICAL' : 'ERROR',
+                    message: cause.primaryLog,
+                    timestamp: cause.firstAnomalyTime,
+                    trace_id: 'trace-core-8819'
+                  });
+                }}
+                className="text-[11px] bg-cyber-bg/90 p-2 rounded border border-cyber-border/70 text-cyber-text truncate hover:border-cyber-cyan transition-colors"
+                title="Click to view detailed trace waterfall"
+              >
                 <span className="text-cyber-cyan mr-1.5 font-bold">[T-0 TELEMETRY]:</span>
                 {cause.primaryLog}
               </div>

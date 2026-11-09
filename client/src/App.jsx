@@ -7,6 +7,12 @@ import VoiceAssistant from './components/layout/VoiceAssistant';
 import JarvisChatModal from './components/chat/JarvisChatModal';
 import WarRoomModal from './components/warroom/WarRoomModal';
 
+// Modals & Interactive Drawers
+import NodeDetailModal from './components/modals/NodeDetailModal';
+import LogDetailModal from './components/modals/LogDetailModal';
+import RiskScoreModal from './components/modals/RiskScoreModal';
+import CyberTerminalDrawer from './components/terminal/CyberTerminalDrawer';
+
 // Dashboard Components
 import HeroAlertCollapse from './components/dashboard/HeroAlertCollapse';
 import ActiveIncidentBanner from './components/dashboard/ActiveIncidentBanner';
@@ -53,7 +59,7 @@ function MainLayout() {
       <div className="flex-1 flex overflow-hidden">
         <Sidebar />
 
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 pb-24">
           {/* TAB 1: COMMAND HUD / DASHBOARD */}
           {activeTab === 'dashboard' && (
             <div className="space-y-5">
@@ -122,10 +128,14 @@ function MainLayout() {
         </main>
       </div>
 
-      {/* Floating Global Modals */}
+      {/* Floating Global Modals & Drawers */}
       <VoiceAssistant />
       <JarvisChatModal />
       <WarRoomModal />
+      <NodeDetailModal />
+      <LogDetailModal />
+      <RiskScoreModal />
+      <CyberTerminalDrawer />
     </div>
   );
 }

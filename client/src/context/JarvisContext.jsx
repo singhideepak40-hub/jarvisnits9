@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { INITIAL_SERVICES, INITIAL_EDGES } from '../data/defaultServices';
 import { soundEffects } from '../engine/soundEffects';
+import confetti from 'canvas-confetti';
 
 const JarvisContext = createContext(null);
 
@@ -12,16 +13,24 @@ export function JarvisProvider({ children }) {
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [incidentDetails, setIncidentDetails] = useState(null);
   const [predictions, setPredictions] = useState([]);
-  const [systemStatus, setSystemStatus] = useState('ONLINE'); // 'ONLINE' | 'INCIDENT_DETECTED' | 'PREDICTIVE_WARNING'
-  const [ecgStatus, setEcgStatus] = useState('steady'); // 'steady' | 'irregular' | 'alarm'
+  const [systemStatus, setSystemStatus] = useState('INCIDENT_DETECTED'); // 'ONLINE' | 'INCIDENT_DETECTED' | 'PREDICTIVE_WARNING'
+  const [ecgStatus, setEcgStatus] = useState('alarm'); // 'steady' | 'irregular' | 'alarm'
   const [isMuted, setIsMuted] = useState(false);
   const [showBootAnimation, setShowBootAnimation] = useState(true);
-  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard'|'investigation'|'predictions'|'whatif'|'compare'|'logs'|'reports'
+  const [activeTab, setActiveTab] = useState('dashboard');
+  
+  // Interactive Modals & Drawers
+  const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const [selectedLog, setSelectedLog] = useState(null);
+  const [isRiskModalOpen, setIsRiskModalOpen] = useState(false);
+  const [isTerminalOpen, setIsTerminalOpen] = useState(false);
   const [isWarRoomOpen, setIsWarRoomOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isVoiceListening, setIsVoiceListening] = useState(false);
   const [isSimulating, setIsSimulating] = useState(true);
-  const [chaosScenario, setChaosScenario] = useState('kill_db');
+  
+  // Preset Scenarios
+  const [currentScenarioPreset, setCurrentScenarioPreset] = useState('db_pool'); // 'db_pool' | 'stripe_down' | 'auth_oom' | 'healthy'
   
   // Time Travel Scrubber
   const [timeScrubberValue, setTimeScrubberValue] = useState(100); // 0 to 100%
@@ -39,6 +48,16 @@ export function JarvisProvider({ children }) {
     });
   };
 
+  // Cycle ECG State manually when clicked
+  const cycleEcgStatus = () => {
+    soundEffects.playClick();
+    setEcgStatus(prev => {
+      if (prev === 'steady') return 'irregular';
+      if (prev === 'irregular') return 'alarm';
+      return 'steady';
+    });
+  };
+
   // 1. Establish WebSocket & Polling with Backend
   useEffect(() => {
     let ws;
@@ -48,7 +67,6 @@ export function JarvisProvider({ children }) {
       try {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const host = window.location.host;
-        // In dev mode proxy ws to 4000 or connect directly
         const wsUrl = `${protocol}//${host}/ws`;
 
         ws = new WebSocket(wsUrl);
@@ -56,7 +74,6 @@ export function JarvisProvider({ children }) {
 
         ws.onopen = () => {
           setIsBackendConnected(true);
-          console.log('[JARVIS] WebSocket connected to server');
         };
 
         ws.onmessage = (event) => {
@@ -89,7 +106,7 @@ export function JarvisProvider({ children }) {
     };
   }, []);
 
-  // 2. Fetch Initial Incidents & Graph Data via REST
+  // Fetch Incidents & State
   const refreshIncidents = async () => {
     try {
       const res = await fetch('/api/incidents');
@@ -106,10 +123,11 @@ export function JarvisProvider({ children }) {
           setSystemStatus('ONLINE');
           setEcgStatus('steady');
         }
+      } else {
+        runLocalScenario(currentScenarioPreset);
       }
     } catch {
-      // Offline fallback: simulate in browser
-      runLocalIncidentSimulation();
+      runLocalScenario(currentScenarioPreset);
     }
   };
 
@@ -135,9 +153,7 @@ export function JarvisProvider({ children }) {
         const data = await res.json();
         setPredictions(data.forecasts || []);
       }
-    } catch {
-      // Fallback
-    }
+    } catch {}
   };
 
   useEffect(() => {
@@ -160,7 +176,6 @@ export function JarvisProvider({ children }) {
       }
     } else if (msg.type === 'TELEMETRY_TICK') {
       if (msg.graph?.nodes) {
-        // Sync node statuses while preserving coordinates
         setNodes(prev => prev.map(pNode => {
           const updated = msg.graph.nodes.find(n => n.id === pNode.id);
           return updated ? { ...pNode, ...updated, position: pNode.position } : pNode;
@@ -171,8 +186,7 @@ export function JarvisProvider({ children }) {
 
   // Chaos Injection Trigger
   const triggerChaos = async (scenario) => {
-    soundEffects.playClick();
-    setChaosScenario(scenario);
+    soundEffects.playAlert();
     try {
       await fetch('/api/simulate/inject', {
         method: 'POST',
@@ -183,30 +197,82 @@ export function JarvisProvider({ children }) {
         refreshIncidents();
         fetchPredictions();
       }, 500);
-    } catch {
-      runLocalChaos(scenario);
-    }
-  };
-
-  // Reset Simulation
-  const resetSimulation = async () => {
-    soundEffects.playSuccess();
-    try {
-      await fetch('/api/simulate/reset', { method: 'POST' });
     } catch {}
-    setNodes(INITIAL_SERVICES);
-    setEdges(INITIAL_EDGES);
-    setEvents([]);
-    setIncidents([]);
-    setSelectedIncident(null);
-    setIncidentDetails(null);
-    setSystemStatus('ONLINE');
-    setEcgStatus('steady');
+    runLocalScenario(scenario);
   };
 
-  // Fallback Local Simulation
-  const runLocalIncidentSimulation = () => {
-    // Generate realistic in-browser incident data
+  // Instant Scenario Presets Switcher
+  const loadScenario = (presetKey) => {
+    soundEffects.playClick();
+    setCurrentScenarioPreset(presetKey);
+    runLocalScenario(presetKey);
+  };
+
+  // Local Scenario State Builder
+  const runLocalScenario = (preset) => {
+    if (preset === 'healthy') {
+      setNodes(INITIAL_SERVICES.map(s => ({ ...s, health: 100, status: 'healthy', activeAlerts: 0 })));
+      setEvents([]);
+      setIncidents([]);
+      setSelectedIncident(null);
+      setIncidentDetails(null);
+      setPredictions([]);
+      setSystemStatus('ONLINE');
+      setEcgStatus('steady');
+      return;
+    }
+
+    if (preset === 'stripe_down' || preset === 'payment_gateway_down') {
+      const mockEvents = [
+        {
+          id: 'ev-stripe-01',
+          timestamp: new Date(Date.now() - 60000).toISOString(),
+          service: 'payment-gateway',
+          severity: 'CRITICAL',
+          message: 'HTTP 503 Service Unavailable: Stripe Bank Ingress TLS Handshake Reset',
+          type: 'network',
+          trace_id: 'trace-stripe-9901',
+          signalScore: 0.98
+        },
+        {
+          id: 'ev-stripe-02',
+          timestamp: new Date(Date.now() - 40000).toISOString(),
+          service: 'payment-service',
+          severity: 'ERROR',
+          message: 'CircuitBreakerOpen: Payment gateway error threshold exceeded (94% failure rate)',
+          type: 'exception',
+          trace_id: 'trace-stripe-9901',
+          signalScore: 0.92
+        }
+      ];
+
+      setEvents(mockEvents);
+      const inc = {
+        id: 'INC-2026-002',
+        title: 'External Payment Gateway Outage & Circuit Breaker Trip',
+        severity: 'CRITICAL',
+        status: 'INVESTIGATING',
+        startTime: mockEvents[0].timestamp,
+        lastTime: mockEvents[1].timestamp,
+        eventCount: 22,
+        rawNoiseFiltered: 94,
+        servicesInvolved: ['payment-gateway', 'payment-service'],
+        events: mockEvents
+      };
+      setIncidents([inc]);
+      setSelectedIncident(inc);
+      setSystemStatus('INCIDENT_DETECTED');
+      setEcgStatus('alarm');
+
+      setNodes(prev => prev.map(n => {
+        if (n.id === 'payment-gateway') return { ...n, health: 10, status: 'failing', activeAlerts: 18 };
+        if (n.id === 'payment-service') return { ...n, health: 35, status: 'degraded', activeAlerts: 8 };
+        return { ...n, health: 100, status: 'healthy', activeAlerts: 0 };
+      }));
+      return;
+    }
+
+    // Default: 'db_pool' / 'kill_db'
     const mockEvents = [
       {
         id: 'ev-01',
@@ -291,18 +357,68 @@ export function JarvisProvider({ children }) {
     setSystemStatus('INCIDENT_DETECTED');
     setEcgStatus('alarm');
 
-    // Update node health
     setNodes(prev => prev.map(n => {
       if (n.id === 'core-db') return { ...n, health: 10, status: 'failing', activeAlerts: 14 };
       if (['auth-service', 'api-gateway', 'payment-service'].includes(n.id)) return { ...n, health: 25, status: 'failing', activeAlerts: 8 };
       if (n.id === 'notification-service') return { ...n, health: 60, status: 'degraded', activeAlerts: 2 };
+      return { ...n, health: 100, status: 'healthy', activeAlerts: 0 };
+    }));
+  };
+
+  // Heal an individual microservice live
+  const healService = (serviceId) => {
+    soundEffects.playSuccess();
+    setNodes(prev => prev.map(n => {
+      if (n.id === serviceId) {
+        return {
+          ...n,
+          health: 100,
+          status: 'healthy',
+          activeAlerts: 0,
+          predictedFailure: null,
+          metrics: { ...n.metrics, latency: 18, errorRate: 0.01 }
+        };
+      }
       return n;
     }));
   };
 
-  const runLocalChaos = (scenario) => {
-    runLocalIncidentSimulation();
+  // Heal entire platform with Confetti
+  const healAllServices = () => {
+    soundEffects.playSuccess();
+    try {
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+    } catch {}
+
+    setNodes(INITIAL_SERVICES.map(s => ({
+      ...s,
+      health: 100,
+      status: 'healthy',
+      activeAlerts: 0,
+      predictedFailure: null
+    })));
+    setIncidents([]);
+    setSelectedIncident(null);
+    setIncidentDetails(null);
+    setPredictions([]);
+    setSystemStatus('ONLINE');
+    setEcgStatus('steady');
   };
+
+  // Reset Simulation State
+  const resetSimulation = async () => {
+    soundEffects.playSuccess();
+    try {
+      await fetch('/api/simulate/reset', { method: 'POST' });
+    } catch {}
+    loadScenario('healthy');
+  };
+
+  const selectedNode = nodes.find(n => n.id === selectedNodeId) || null;
 
   return (
     <JarvisContext.Provider value={{
@@ -317,14 +433,29 @@ export function JarvisProvider({ children }) {
       setSelectedIncident,
       incidentDetails,
       predictions,
+      setPredictions,
       systemStatus,
+      setSystemStatus,
       ecgStatus,
+      setEcgStatus,
+      cycleEcgStatus,
       isMuted,
       toggleMute,
       showBootAnimation,
       setShowBootAnimation,
       activeTab,
       setActiveTab,
+      selectedNodeId,
+      setSelectedNodeId,
+      selectedNode,
+      healService,
+      healAllServices,
+      selectedLog,
+      setSelectedLog,
+      isRiskModalOpen,
+      setIsRiskModalOpen,
+      isTerminalOpen,
+      setIsTerminalOpen,
       isWarRoomOpen,
       setIsWarRoomOpen,
       isChatOpen,
@@ -333,7 +464,8 @@ export function JarvisProvider({ children }) {
       setIsVoiceListening,
       isSimulating,
       setIsSimulating,
-      chaosScenario,
+      currentScenarioPreset,
+      loadScenario,
       triggerChaos,
       resetSimulation,
       timeScrubberValue,

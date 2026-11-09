@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useJarvis } from '../../context/JarvisContext';
-import { Filter, Sliders, Search, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Filter, Sliders, Search, AlertCircle, ShieldCheck, Eye } from 'lucide-react';
+import { soundEffects } from '../../engine/soundEffects';
 
 export default function NormalizedLogTable() {
-  const { events } = useJarvis();
+  const { events, setSelectedLog, setSelectedNodeId } = useJarvis();
   const [filterSeverity, setFilterSeverity] = useState('ALL');
   const [signalThreshold, setSignalThreshold] = useState(0.40); // 0 to 1
   const [searchTerm, setSearchTerm] = useState('');
@@ -15,12 +16,17 @@ export default function NormalizedLogTable() {
   });
 
   return (
-    <div className="rounded-xl hud-panel p-5 border border-cyber-border space-y-4 font-mono">
+    <div className="rounded-xl hud-panel p-5 border border-cyber-border space-y-4 font-mono select-none">
       {/* Table Controls */}
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between pb-3 border-b border-cyber-border/70 gap-3">
-        <div className="flex items-center space-x-2 text-cyber-cyan text-xs font-bold">
-          <Sliders className="w-4 h-4 text-cyber-cyan" />
-          <span>NORMALIZED TELEMETRY EVENT STREAM ({filteredLogs.length} EVENTS)</span>
+        <div>
+          <div className="flex items-center space-x-2 text-cyber-cyan text-xs font-bold">
+            <Sliders className="w-4 h-4 text-cyber-cyan" />
+            <span>NORMALIZED TELEMETRY EVENT STREAM ({filteredLogs.length} EVENTS)</span>
+          </div>
+          <span className="text-[10px] text-cyber-muted block mt-0.5">
+            Click any row to inspect distributed trace waterfall & JSON schema
+          </span>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 text-xs w-full lg:w-auto">
@@ -43,7 +49,7 @@ export default function NormalizedLogTable() {
           <select
             value={filterSeverity}
             onChange={(e) => setFilterSeverity(e.target.value)}
-            className="bg-cyber-card border border-cyber-border rounded px-2.5 py-1 text-xs text-cyber-text focus:outline-none focus:border-cyber-cyan"
+            className="bg-cyber-card border border-cyber-border rounded px-2.5 py-1 text-xs text-cyber-text focus:outline-none focus:border-cyber-cyan cursor-pointer"
           >
             <option value="ALL">All Severities</option>
             <option value="CRITICAL">Critical Only</option>
@@ -64,6 +70,28 @@ export default function NormalizedLogTable() {
             />
           </div>
         </div>
+      </div>
+
+      {/* Quick Search Tag Pills */}
+      <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+        <span className="text-cyber-muted uppercase mr-1">Quick Filters:</span>
+        {['core-db', 'auth-service', '504', 'timeout', 'pool', 'deadlock'].map((tag, i) => (
+          <button
+            key={i}
+            onClick={() => setSearchTerm(tag)}
+            className="px-2 py-0.5 rounded bg-cyber-card border border-cyber-border hover:border-cyber-cyan text-cyber-cyan cursor-pointer transition-colors"
+          >
+            #{tag}
+          </button>
+        ))}
+        {searchTerm && (
+          <button
+            onClick={() => setSearchTerm('')}
+            className="text-cyber-muted hover:text-white underline ml-2 cursor-pointer"
+          >
+            Clear Filter
+          </button>
+        )}
       </div>
 
       {/* Events Table */}
@@ -87,11 +115,16 @@ export default function NormalizedLogTable() {
               return (
                 <tr
                   key={e.id || idx}
-                  className={`transition-colors ${
+                  onClick={() => {
+                    soundEffects.playClick();
+                    setSelectedLog(e);
+                  }}
+                  className={`transition-colors cursor-pointer ${
                     isNoise
-                      ? 'opacity-35 bg-cyber-bg hover:opacity-70'
-                      : 'hover:bg-cyber-card/60'
+                      ? 'opacity-35 bg-cyber-bg hover:opacity-80 hover:bg-cyber-card/40'
+                      : 'hover:bg-cyber-card/80 hover:border-l-2 hover:border-cyber-cyan'
                   }`}
+                  title="Click to inspect trace waterfall"
                 >
                   <td className="py-2 px-3 text-[10px] text-cyber-muted whitespace-nowrap">
                     {new Date(e.timestamp).toLocaleTimeString()}
@@ -117,11 +150,19 @@ export default function NormalizedLogTable() {
                     </span>
                   </td>
 
-                  <td className="py-2 px-3 whitespace-nowrap font-bold text-white uppercase text-[11px]">
+                  <td
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      soundEffects.playClick();
+                      setSelectedNodeId(e.service);
+                    }}
+                    className="py-2 px-3 whitespace-nowrap font-bold text-white uppercase text-[11px] hover:text-cyber-cyan hover:underline"
+                    title="Click to inspect service node"
+                  >
                     {e.service}
                   </td>
 
-                  <td className="py-2 px-3 text-[10px] text-cyber-muted whitespace-nowrap">
+                  <td className="py-2 px-3 text-[10px] text-cyber-muted whitespace-nowrap font-mono">
                     {e.trace_id ? e.trace_id.slice(0, 14) : 'sys-trace'}
                   </td>
 

@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -10,7 +10,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import CustomServiceNode from './CustomServiceNode';
 import { useJarvis } from '../../context/JarvisContext';
-import { Activity, ShieldAlert, Sparkles, Filter } from 'lucide-react';
+import { Activity, ShieldAlert, Sparkles, Filter, Layers, ZoomIn } from 'lucide-react';
 import { soundEffects } from '../../engine/soundEffects';
 
 const nodeTypes = {
@@ -18,22 +18,37 @@ const nodeTypes = {
 };
 
 export default function ServiceGraph({ onSelectNode }) {
-  const { nodes: contextNodes, edges: contextEdges, incidentDetails } = useJarvis();
+  const { nodes: contextNodes, edges: contextEdges, incidentDetails, setSelectedNodeId } = useJarvis();
+  const [filterMode, setFilterMode] = useState('ALL'); // 'ALL' | 'BLAST' | 'CRITICAL' | 'STORAGE'
+
+  const affectedServices = incidentDetails?.impactAnalysis?.affectedServices || ['core-db', 'auth-service', 'api-gateway', 'payment-service', 'notification-service'];
+
+  // Filter nodes interactively
+  const filteredContextNodes = useMemo(() => {
+    if (filterMode === 'BLAST') {
+      return contextNodes.filter(n => affectedServices.includes(n.id));
+    }
+    if (filterMode === 'CRITICAL') {
+      return contextNodes.filter(n => n.health < 40 || n.status === 'failing');
+    }
+    if (filterMode === 'STORAGE') {
+      return contextNodes.filter(n => n.type === 'database');
+    }
+    return contextNodes;
+  }, [contextNodes, filterMode, affectedServices]);
 
   // Convert context nodes to React Flow format
   const rfNodes = useMemo(() => {
-    return contextNodes.map(n => ({
+    return filteredContextNodes.map(n => ({
       id: n.id,
       type: 'customService',
       position: n.position || { x: 300, y: 200 },
       data: { ...n }
     }));
-  }, [contextNodes]);
+  }, [filteredContextNodes]);
 
   // Convert context edges with dynamic styling based on cascade
   const rfEdges = useMemo(() => {
-    const affectedServices = incidentDetails?.impactAnalysis?.affectedServices || ['core-db', 'auth-service', 'api-gateway', 'payment-service'];
-
     return contextEdges.map(e => {
       const isCascadePath = affectedServices.includes(e.source) && affectedServices.includes(e.target);
       return {
@@ -52,12 +67,11 @@ export default function ServiceGraph({ onSelectNode }) {
         }
       };
     });
-  }, [contextEdges, incidentDetails]);
+  }, [contextEdges, affectedServices]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(rfNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(rfEdges);
 
-  // Sync with context updates
   React.useEffect(() => {
     setNodes(rfNodes);
   }, [rfNodes, setNodes]);
@@ -68,29 +82,49 @@ export default function ServiceGraph({ onSelectNode }) {
 
   const handleNodeClick = useCallback((event, node) => {
     soundEffects.playClick();
+    setSelectedNodeId(node.id);
     if (onSelectNode) onSelectNode(node.id);
-  }, [onSelectNode]);
+  }, [onSelectNode, setSelectedNodeId]);
 
   return (
-    <div className="relative w-full h-[540px] rounded-xl hud-panel border border-cyber-border overflow-hidden">
-      {/* HUD Header Bar */}
-      <div className="absolute top-3 left-4 z-10 flex items-center space-x-3 pointer-events-none">
+    <div className="relative w-full h-[540px] rounded-xl hud-panel border border-cyber-border overflow-hidden select-none">
+      {/* Top Left Title & Interactive Filter Pills */}
+      <div className="absolute top-3 left-4 z-10 flex flex-wrap items-center gap-2">
         <div className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-cyber-bg/90 border border-cyber-border/80 backdrop-blur-md">
           <Activity className="w-4 h-4 text-cyber-cyan animate-pulse" />
           <span className="text-xs font-mono font-bold text-cyber-cyan uppercase tracking-wider">
-            Temporal Service Mesh Graph
+            Service Mesh Graph (Click Node to Inspect)
           </span>
         </div>
-        <div className="hidden sm:flex items-center space-x-2 text-[10px] font-mono text-cyber-muted px-2.5 py-1 rounded bg-cyber-card/80 border border-cyber-border">
-          <span className="w-2 h-2 rounded-full bg-cyber-green inline-block" /> Healthy
-          <span className="w-2 h-2 rounded-full bg-cyber-amber inline-block ml-2" /> Degraded
-          <span className="w-2 h-2 rounded-full bg-cyber-red inline-block ml-2" /> Critical
-          <span className="w-2 h-2 rounded-full border border-dashed border-cyber-amber inline-block ml-2" /> Predicted
+
+        {/* Interactive Filter Pills */}
+        <div className="flex items-center space-x-1 font-mono text-[10px] bg-cyber-card/90 p-0.5 rounded-lg border border-cyber-border">
+          {[
+            { id: 'ALL', label: `All (${contextNodes.length})` },
+            { id: 'BLAST', label: `Blast Radius (${affectedServices.length})` },
+            { id: 'CRITICAL', label: 'Failing Only' },
+            { id: 'STORAGE', label: 'Databases' }
+          ].map(f => (
+            <button
+              key={f.id}
+              onClick={() => {
+                soundEffects.playClick();
+                setFilterMode(f.id);
+              }}
+              className={`px-2 py-1 rounded transition-colors cursor-pointer ${
+                filterMode === f.id
+                  ? 'bg-cyber-cyan/20 text-cyber-cyan font-bold border border-cyber-cyan/40 shadow-neon-cyan'
+                  : 'text-cyber-muted hover:text-white'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Ripple Wave Speed Banner (I4) */}
-      <div className="absolute top-3 right-4 z-10 hidden md:flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-cyber-red/15 border border-cyber-red/40 text-cyber-red text-xs font-mono pointer-events-none">
+      <div className="absolute top-3 right-4 z-10 hidden lg:flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-cyber-red/15 border border-cyber-red/40 text-cyber-red text-xs font-mono pointer-events-none">
         <ShieldAlert className="w-4 h-4 animate-pulse" />
         <span>Wave Speed: <strong>5 services in 4.2m (1.2 hops/min)</strong></span>
       </div>

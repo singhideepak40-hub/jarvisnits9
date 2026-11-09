@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, RotateCcw, Clock, ShieldAlert, ArrowDown, Zap } from 'lucide-react';
+import { Play, Pause, RotateCcw, Clock, ShieldAlert, ArrowDown, Zap, FastForward } from 'lucide-react';
 import { useJarvis } from '../../context/JarvisContext';
 import { soundEffects } from '../../engine/soundEffects';
 
 export default function IncidentTimeline() {
-  const { incidentDetails, timeScrubberValue, setTimeScrubberValue } = useJarvis();
+  const { incidentDetails, timeScrubberValue, setTimeScrubberValue, setSelectedNodeId } = useJarvis();
   const [isPlaying, setIsPlaying] = useState(false);
 
   const timelineSteps = [
     {
+      pct: 0,
       time: '10:41:00 AM',
       service: 'core-db',
       level: 'CRITICAL',
@@ -16,6 +17,7 @@ export default function IncidentTimeline() {
       blastRadius: 1
     },
     {
+      pct: 25,
       time: '10:41:30 AM',
       service: 'auth-service',
       level: 'ERROR',
@@ -23,6 +25,7 @@ export default function IncidentTimeline() {
       blastRadius: 2
     },
     {
+      pct: 50,
       time: '10:42:00 AM',
       service: 'api-gateway',
       level: 'CRITICAL',
@@ -30,6 +33,7 @@ export default function IncidentTimeline() {
       blastRadius: 3
     },
     {
+      pct: 75,
       time: '10:42:45 AM',
       service: 'payment-service',
       level: 'CRITICAL',
@@ -37,6 +41,7 @@ export default function IncidentTimeline() {
       blastRadius: 4
     },
     {
+      pct: 100,
       time: '10:43:15 AM',
       service: 'notification-service',
       level: 'WARN',
@@ -70,17 +75,16 @@ export default function IncidentTimeline() {
     setIsPlaying(!isPlaying);
   };
 
-  const resetScrubber = () => {
+  const jumpTo = (pct) => {
     soundEffects.playClick();
     setIsPlaying(false);
-    setTimeScrubberValue(0);
+    setTimeScrubberValue(pct);
   };
 
-  // Determine active steps visible at current scrubber value
   const visibleStepIndex = Math.floor((timeScrubberValue / 100) * (timelineSteps.length - 1));
 
   return (
-    <div className="rounded-xl hud-panel p-5 border border-cyber-border space-y-4">
+    <div className="rounded-xl hud-panel p-5 border border-cyber-border space-y-4 select-none">
       {/* Header & Controls */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 border-b border-cyber-border/70 gap-3">
         <div className="flex items-center space-x-2 text-cyber-cyan font-mono text-xs font-bold">
@@ -103,13 +107,31 @@ export default function IncidentTimeline() {
           </button>
 
           <button
-            onClick={resetScrubber}
+            onClick={() => jumpTo(0)}
             title="Rewind to T-0"
             className="p-1.5 rounded-lg bg-cyber-card border border-cyber-border hover:border-cyber-muted text-cyber-muted hover:text-white transition-colors cursor-pointer"
           >
             <RotateCcw className="w-4 h-4" />
           </button>
         </div>
+      </div>
+
+      {/* Interactive Quick-Jump Milestones */}
+      <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px]">
+        <span className="text-cyber-muted uppercase mr-1">Quick Jump:</span>
+        {timelineSteps.map((s, idx) => (
+          <button
+            key={idx}
+            onClick={() => jumpTo(s.pct)}
+            className={`px-2 py-0.5 rounded border transition-all cursor-pointer ${
+              visibleStepIndex === idx
+                ? 'bg-cyber-cyan/20 border-cyber-cyan text-cyber-cyan font-bold shadow-neon-cyan'
+                : 'bg-cyber-card/70 border-cyber-border text-cyber-muted hover:text-white'
+            }`}
+          >
+            T+{idx * 30}s: {s.service}
+          </button>
+        ))}
       </div>
 
       {/* Global Time Scrubber Slider (W6) */}
@@ -135,7 +157,7 @@ export default function IncidentTimeline() {
         </div>
       </div>
 
-      {/* Vertical Cascade Progression */}
+      {/* Vertical Cascade Progression with Clickable Nodes */}
       <div className="relative pl-6 space-y-4 pt-2 border-l-2 border-cyber-border/80 ml-3">
         {timelineSteps.map((step, idx) => {
           const isPassed = idx <= visibleStepIndex;
@@ -144,8 +166,12 @@ export default function IncidentTimeline() {
           return (
             <div
               key={idx}
-              className={`relative transition-all duration-300 ${
-                isPassed ? 'opacity-100' : 'opacity-30'
+              onClick={() => {
+                soundEffects.playClick();
+                setSelectedNodeId(step.service);
+              }}
+              className={`relative transition-all duration-300 cursor-pointer ${
+                isPassed ? 'opacity-100 hover:scale-[1.01]' : 'opacity-30'
               }`}
             >
               {/* Dot on line */}
@@ -160,12 +186,15 @@ export default function IncidentTimeline() {
               <div className={`p-3 rounded-lg border font-mono ${
                 isCurrent
                   ? 'border-cyber-red/60 bg-cyber-red/10 shadow-neon-red'
-                  : 'border-cyber-border/70 bg-cyber-card/60'
+                  : 'border-cyber-border/70 bg-cyber-card/60 hover:border-cyber-cyan/40'
               }`}>
                 <div className="flex items-center justify-between text-xs mb-1">
                   <div className="flex items-center space-x-2">
                     <span className="text-cyber-cyan font-bold">{step.time}</span>
-                    <span className="text-white font-bold uppercase">{step.service}</span>
+                    <span className="text-white font-bold uppercase underline decoration-cyber-cyan/40">
+                      {step.service}
+                    </span>
+                    <span className="text-[10px] text-cyber-muted">(Click to inspect node)</span>
                   </div>
                   <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
                     step.level === 'CRITICAL' ? 'bg-cyber-red/20 text-cyber-red border border-cyber-red/40' : (
