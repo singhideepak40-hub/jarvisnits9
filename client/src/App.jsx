@@ -10,6 +10,7 @@ import LogDetailModal from './components/modals/LogDetailModal';
 
 // Dashboard & Overview
 import ActiveIncidentBanner from './components/dashboard/ActiveIncidentBanner';
+import LiveTrafficController from './components/dashboard/LiveTrafficController';
 import MetricCounters from './components/dashboard/MetricCounters';
 import HeroAlertCollapse from './components/dashboard/HeroAlertCollapse';
 import ServiceGraph from './components/graph/ServiceGraph';
@@ -32,7 +33,7 @@ function MainLayout() {
 
   return (
     <div className="min-h-screen bg-surface-bg text-slate-100 flex flex-col font-sans select-none">
-      {/* Clean, peaceful Header */}
+      {/* Clean, peaceful Header with Command Palette */}
       <Header />
 
       {/* Main Container */}
@@ -46,6 +47,7 @@ function MainLayout() {
           {activeTab === 'overview' && (
             <div className="space-y-5 max-w-7xl mx-auto">
               <ActiveIncidentBanner />
+              <LiveTrafficController />
               <MetricCounters />
               <HeroAlertCollapse />
               <ServiceGraph />

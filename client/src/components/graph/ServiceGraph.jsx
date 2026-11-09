@@ -10,7 +10,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import CustomServiceNode from './CustomServiceNode';
 import { useJarvis } from '../../context/JarvisContext';
-import { Network, Filter } from 'lucide-react';
+import { Network, Filter, Layers, Server } from 'lucide-react';
 
 const nodeTypes = {
   customService: CustomServiceNode
@@ -19,20 +19,33 @@ const nodeTypes = {
 export default function ServiceGraph({ onSelectNode }) {
   const { nodes: contextNodes, edges: contextEdges, incidentDetails, setSelectedNodeId } = useJarvis();
   const [filterMode, setFilterMode] = useState('ALL');
+  const [topologyMode, setTopologyMode] = useState('LOGICAL'); // 'LOGICAL' | 'K8S'
 
   const affectedServices = incidentDetails?.impactAnalysis?.affectedServices || [
     'core-db', 'auth-service', 'api-gateway', 'payment-service', 'notification-service'
   ];
 
-  const filteredContextNodes = useMemo(() => {
-    if (filterMode === 'BLAST') {
-      return contextNodes.filter(n => affectedServices.includes(n.id));
-    }
-    if (filterMode === 'FAILING') {
-      return contextNodes.filter(n => n.health < 80 || n.status === 'failing');
+  // If K8S mode is toggled, transform nodes to display pod cluster semantics
+  const currentNodesData = useMemo(() => {
+    if (topologyMode === 'K8S') {
+      return contextNodes.map(n => ({
+        ...n,
+        label: `${n.id}-pod-state`,
+        tier: `K8s Namespace: prod-banking • ${n.status === 'failing' ? 'CrashLoop' : 'Running'}`
+      }));
     }
     return contextNodes;
-  }, [contextNodes, filterMode, affectedServices]);
+  }, [contextNodes, topologyMode]);
+
+  const filteredContextNodes = useMemo(() => {
+    if (filterMode === 'BLAST') {
+      return currentNodesData.filter(n => affectedServices.includes(n.id));
+    }
+    if (filterMode === 'FAILING') {
+      return currentNodesData.filter(n => n.health < 80 || n.status === 'failing');
+    }
+    return currentNodesData;
+  }, [currentNodesData, filterMode, affectedServices]);
 
   const rfNodes = useMemo(() => {
     return filteredContextNodes.map(n => ({
@@ -48,14 +61,15 @@ export default function ServiceGraph({ onSelectNode }) {
       const isCascade = affectedServices.includes(e.source) && affectedServices.includes(e.target);
       return {
         ...e,
-        animated: isCascade,
+        animated: true,
         style: {
-          stroke: isCascade ? '#F43F5E' : '#475569',
-          strokeWidth: isCascade ? 2.2 : 1.5
+          stroke: isCascade ? '#F43F5E' : '#64748B',
+          strokeWidth: isCascade ? 2.5 : 1.5,
+          strokeDasharray: isCascade ? '5,5' : undefined
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
-          color: isCascade ? '#F43F5E' : '#475569',
+          color: isCascade ? '#F43F5E' : '#64748B',
           width: 14,
           height: 14
         }
@@ -80,18 +94,46 @@ export default function ServiceGraph({ onSelectNode }) {
   }, [onSelectNode, setSelectedNodeId]);
 
   return (
-    <div className="relative w-full h-[480px] rounded-xl calm-card overflow-hidden">
-      {/* Clean Top Bar */}
-      <div className="absolute top-3 left-4 z-10 flex flex-wrap items-center gap-2">
-        <div className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-surface-panel/90 border border-surface-border">
-          <Network className="w-3.5 h-3.5 text-brand-400" />
-          <span className="text-xs font-medium text-slate-200">
-            Service Dependency Map
-          </span>
+    <div className="relative w-full h-[500px] rounded-xl calm-card overflow-hidden border border-surface-border">
+      {/* Top Action Bar */}
+      <div className="absolute top-3 left-4 right-4 z-10 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+        <div className="flex items-center space-x-2 pointer-events-auto">
+          <div className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-surface-panel/95 border border-surface-border shadow-sm">
+            <Network className="w-3.5 h-3.5 text-brand-400" />
+            <span className="text-xs font-semibold text-slate-200">
+              Interactive Dependency Graph
+            </span>
+          </div>
+
+          {/* Topology Mode Switcher */}
+          <div className="flex items-center space-x-1 bg-surface-panel/95 p-0.5 rounded-lg border border-surface-border text-xs shadow-sm">
+            <button
+              onClick={() => setTopologyMode('LOGICAL')}
+              className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer flex items-center space-x-1.5 ${
+                topologyMode === 'LOGICAL'
+                  ? 'bg-surface-card text-white font-medium border border-surface-border'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Layers className="w-3 h-3" />
+              <span>Logical Service Map</span>
+            </button>
+            <button
+              onClick={() => setTopologyMode('K8S')}
+              className={`px-2.5 py-1 rounded text-xs transition-colors cursor-pointer flex items-center space-x-1.5 ${
+                topologyMode === 'K8S'
+                  ? 'bg-surface-card text-white font-medium border border-surface-border'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Server className="w-3 h-3" />
+              <span>K8s Pod Topology</span>
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
-        <div className="flex items-center space-x-1 text-xs bg-surface-panel/90 p-0.5 rounded-lg border border-surface-border">
+        <div className="flex items-center space-x-1 text-xs bg-surface-panel/95 p-0.5 rounded-lg border border-surface-border shadow-sm pointer-events-auto">
           {[
             { id: 'ALL', label: `All Services (${contextNodes.length})` },
             { id: 'BLAST', label: `Blast Radius (${affectedServices.length})` },
@@ -113,18 +155,18 @@ export default function ServiceGraph({ onSelectNode }) {
       </div>
 
       {/* Clean Legend */}
-      <div className="absolute bottom-3 left-4 z-10 flex items-center space-x-3 text-xs text-slate-400 px-3 py-1.5 rounded-lg bg-surface-panel/90 border border-surface-border">
+      <div className="absolute bottom-3 left-4 z-10 flex items-center space-x-3 text-xs text-slate-400 px-3 py-1.5 rounded-lg bg-surface-panel/95 border border-surface-border shadow-sm">
         <div className="flex items-center space-x-1.5">
           <span className="w-2 h-2 rounded-full bg-emerald-400" />
-          <span>Healthy</span>
+          <span>Healthy (100% SLA)</span>
         </div>
         <div className="flex items-center space-x-1.5">
           <span className="w-2 h-2 rounded-full bg-amber-400" />
-          <span>Degraded</span>
+          <span>Degraded Latency</span>
         </div>
         <div className="flex items-center space-x-1.5">
           <span className="w-2 h-2 rounded-full bg-rose-400" />
-          <span>Failing (Cascade)</span>
+          <span>Failing (Cascade Wave)</span>
         </div>
       </div>
 
@@ -136,12 +178,12 @@ export default function ServiceGraph({ onSelectNode }) {
         nodeTypes={nodeTypes}
         onNodeClick={handleNodeClick}
         fitView
-        fitViewOptions={{ padding: 0.15 }}
+        fitViewOptions={{ padding: 0.18 }}
         minZoom={0.5}
         maxZoom={1.5}
       >
         <Background color="#1E293B" gap={20} size={1} />
-        <Controls />
+        <Controls className="!bg-surface-panel !border-surface-border !text-slate-200" />
       </ReactFlow>
     </div>
   );

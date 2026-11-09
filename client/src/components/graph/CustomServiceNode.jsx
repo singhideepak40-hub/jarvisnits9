@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Database, Server, Globe, Cpu, Bell } from 'lucide-react';
+import { Database, Server, Globe, Cpu, Bell, ShieldAlert, CheckCircle2 } from 'lucide-react';
 
 const iconMap = {
   frontend: Globe,
@@ -16,23 +16,23 @@ function CustomServiceNode({ data, selected }) {
   const isFailing = data.status === 'failing' || data.health < 40;
   const isDegraded = data.status === 'degraded' || (data.health >= 40 && data.health < 80);
 
-  let borderClass = 'border-surface-border bg-surface-card hover:border-slate-600';
+  let borderClass = 'border-surface-border bg-surface-card hover:border-slate-600 shadow-sm';
   let badgeClass = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
   let statusText = 'Healthy';
 
   if (isFailing) {
-    borderClass = 'border-rose-500/40 bg-rose-950/20 shadow-sm';
+    borderClass = 'border-rose-500/40 bg-rose-950/20 shadow-md shadow-rose-950/30';
     badgeClass = 'bg-rose-500/15 text-rose-400 border-rose-500/30';
     statusText = 'Failing';
   } else if (isDegraded) {
-    borderClass = 'border-amber-500/40 bg-amber-950/20';
+    borderClass = 'border-amber-500/40 bg-amber-950/20 shadow-sm';
     badgeClass = 'bg-amber-500/15 text-amber-400 border-amber-500/30';
     statusText = 'Degraded';
   }
 
   return (
     <div
-      className={`px-3.5 py-3 rounded-xl border transition-all duration-200 min-w-[190px] ${borderClass} ${
+      className={`px-3.5 py-3 rounded-xl border transition-all duration-200 min-w-[200px] select-none ${borderClass} ${
         selected ? 'ring-2 ring-brand-400' : ''
       }`}
     >
@@ -58,28 +58,34 @@ function CustomServiceNode({ data, selected }) {
       {/* Metrics */}
       <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
         <div className="bg-surface-bg/70 px-2 py-1 rounded border border-surface-border/60">
-          <span className="text-slate-400 block text-[9px]">Latency</span>
+          <span className="text-slate-400 block text-[9px]">P99 Latency</span>
           <span className={`font-medium ${
-            (data.metrics?.latency || 24) > 1000 ? 'text-rose-400' : 'text-slate-200'
+            (data.metrics?.latency || 24) > 1000 ? 'text-rose-400 font-semibold' : 'text-slate-200'
           }`}>
             {data.metrics?.latency || 24}ms
           </span>
         </div>
 
         <div className="bg-surface-bg/70 px-2 py-1 rounded border border-surface-border/60">
-          <span className="text-slate-400 block text-[9px]">Health</span>
+          <span className="text-slate-400 block text-[9px]">SLA Health</span>
           <span className={`font-medium ${
-            data.health < 40 ? 'text-rose-400' : (data.health < 80 ? 'text-amber-400' : 'text-emerald-400')
+            data.health < 40 ? 'text-rose-400 font-semibold' : (data.health < 80 ? 'text-amber-400' : 'text-emerald-400')
           }`}>
             {data.health}%
           </span>
         </div>
       </div>
 
+      {/* Kubernetes Pod Health Footer */}
+      <div className="mt-2 pt-1.5 border-t border-surface-border/50 flex items-center justify-between text-[10px] text-slate-400">
+        <span>Pods: {isFailing ? '2/4 Ready' : '4/4 Ready'}</span>
+        <span>TPS: {data.metrics?.connections ? data.metrics.connections * 18 : 340}</span>
+      </div>
+
       {/* Alert Pill if any */}
       {data.activeAlerts > 0 && (
-        <div className="absolute -top-1.5 -right-1.5 px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[9px] font-semibold">
-          {data.activeAlerts}
+        <div className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[9px] font-semibold shadow">
+          {data.activeAlerts} alerts
         </div>
       )}
 
